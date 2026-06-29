@@ -1,10 +1,18 @@
-# LectureShare
+# LectureShare - GitHub Repository
 
-**LectureShare** is a lecture slide sharing platform for classrooms — teachers upload lesson decks after class so absent students can catch up, and students can also browse preview slides for lessons that haven't happened yet.
+**LectureShare** is a lecture slide sharing platform for classrooms — teachers upload lesson decks after class so absent students can catch up, and students can also browse preview slides for les...
 
 This repo contains an **interactive frontend prototype** (single React component, mock data, no backend) built to demo the full user experience before building the real, production backend.
 
-> 🧪 **This is a prototype, not a production app.** Logins, file uploads, and slide content are all simulated in-browser so you can click through the entire experience with no server, database, or file storage required. See [What's real vs. simulated](#whats-real-vs-simulated) below.
+> 🧪 **This is a prototype, not a production app.** Logins, file uploads, and slide content are all simulated in-browser so you can click through the entire experience with no server, database, o...
+
+---
+
+## Live Demo
+
+🚀 **[Open the Interactive App](https://laijie825-lang.github.io/LectureShare/)** 
+
+Click "Skip the form" to see the demo immediately!
 
 ---
 
@@ -66,7 +74,7 @@ npm run dev
 1. On the login screen, pick **Teacher** or **Student**, then either fill in any dummy email/password or hit **"Skip the form — continue as demo [role]."**
 2. **As a Teacher:** go to **Upload Slides**, fill in the lesson details, attach any file, and submit. It'll show "Processing…" then become available to students.
 3. **Switch roles** any time via the logout icon (top right) — your uploads and data persist for the rest of the session.
-4. **As a Student:** check the **Missed Lectures** / **Future Previews** tabs, open a deck to try the slide viewer (arrow keys to change page, `+`/`-` to zoom, fullscreen icon), star a deck to bookmark it, and check the notification bell for new uploads.
+4. **As a Student:** check the **Missed Lectures** / **Future Previews** tabs, open a deck to try the slide viewer (arrow keys to change page, `+`/`-` to zoom, fullscreen icon), star a deck to boo...
 
 ---
 
@@ -82,7 +90,7 @@ Since this prototype has no backend, a few things are mocked so the full flow is
 | Data persistence | Resets on page refresh (in-memory state only) | Stored in a real database |
 | Engagement metrics | Manually incremented mock counters | Logged per real student view/download |
 
-A full technical spec for turning this into a production app — tech stack, database schema, API design, and code samples — is available as a companion document if you'd like to build it out further.
+A full technical spec for turning this into a production app — tech stack, database schema, API design, and code samples — is available as a companion document if you'd like to build it out fu...
 
 ---
 
