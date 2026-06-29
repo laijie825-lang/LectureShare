@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LectureShare - Lecture Slide Sharing Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/recharts@2.10.0/dist/Recharts.js"></script>
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .animate-fadeIn { animation: fadeIn 0.15s ease-out; }
+    </style>
+</head>
+<body class="antialiased">
+    <div id="root"></div>
+    
+    <script type="module">
+        const { useState, useEffect } = React;
+
+        /* ===================== Helpers & mock data ===================== */
+
+        let idSeed = 1000;
+        const nextId = () => ++idSeed;
+
+        const THUMB_GRADIENTS = [
+            "from-blue-400 to-blue-600",
+            "from-teal-400 to-teal-600",
+            "from-amber-400 to-amber-600",
+            "from-violet-400 to-violet-600",
+            "from-rose-400 to-rose-600",
+            "from-sky-400 to-sky-600",
+        ];
+
+        function gradientFor(seed) {
+            return THUMB_GRADIENTS[seed % THUMB_GRADIENTS.length];
+        }
+
+        function formatDate(iso) {
+            const d = new Date(iso + "T00:00:00");
+            return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+        }
+
+        function makePages(topic, course) {
+            return [
+                { kind: "title", title: topic, subtitle: course },
+                {
+                    kind: "bullets", title: "Today's Agenda", bullets: [
+                        "Quick recap of last lesson",
+                        `New material: ${topic}`,
+                        "Worked examples",
+                        "Practice + questions",
+                    ]
+                },
+                {
+                    kind: "bullets", title: "Key Concept 1", bullets: [
+                        "Definition and the core idea",
+                        "Why it matters going forward",
+                        "A common mistake to avoid",
+                    ]
+                },
+                {
+                    kind: "bullets", title: "Key Concept 2", bullets: [
+                        "Building on Concept 1",
+                        "Worked example, step by step",
+                        "Try it yourself",
+                    ]
+                },
+                {
+                    kind: "bullets", title: "Summary & Next Steps", bullets: [
+                        `Recap: ${topic}`,
+                        "Practice set assigned",
+                        "What's coming next lesson",
+                    ]
+                },
+            ];
+        }
+
+        function seedDeck(course, classGroup, topic, date, label, views, downloads) {
+            const id = nextId();
+            return {
+                id, course, classGroup, topic, date, label,
+                status: "ready",
+                views, downloads,
+                color: gradientFor(id),
+                pages: makePages(topic, course),
+                updatedAt: Date.now(),
+            };
+        }
+
+        const initialDecks = [
+            seedDeck("AP Biology", "Period 3", "Cell Respiration", "2026-06-20", "past_lesson", 34, 12),
+            seedDeck("AP Biology", "Period 3", "Photosynthesis Deep Dive", "2026-07-02", "upcoming_preview", 6, 1),
+            seedDeck("World History", "Period 1", "The Cold War Begins", "2026-06-23", "past_lesson", 28, 9),
+            seedDeck("World History", "Period 1", "Decolonization in Africa", "2026-07-05", "upcoming_preview", 3, 0),
+            seedDeck("Algebra II", "Period 5", "Quadratic Functions", "2026-06-25", "past_lesson", 41, 15),
+            seedDeck("Algebra II", "Period 5", "Polynomial Division", "2026-06-27", "past_lesson", 22, 7),
+            seedDeck("Algebra II", "Period 5", "Intro to Logarithms", "2026-07-08", "upcoming_preview", 2, 0),
+        ];
+
+        const LABELS = {
+            past_lesson: { text: "Past Lesson", light: "bg-teal-100 text-teal-800", dark: "dark:bg-teal-900/40 dark:text-teal-300" },
+            upcoming_preview: { text: "Upcoming Preview", light: "bg-amber-100 text-amber-800", dark: "dark:bg-amber-900/40 dark:text-amber-300" },
+        };
+
+        function LabelBadge({ label }) {
+            const l = LABELS[label];
+            return (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${l.light} ${l.dark}`}>
+                    {l.text}
+                </span>
+            );
+        }
+
+        /* ===================== Toast ===================== */
+        function ToastStack({ toasts }) {
+            return (
+                <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 items-end">
+                    {toasts.map((t) => (
+                        <div key={t.id} className="flex items-center gap-2 bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 text-sm font-medium px-4 py-2.5 rounded-lg shadow-lg animate-fadeIn">
+                            <span>✓</span>
+                            {t.message}
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+
+        /* ===================== Login Screen ===================== */
+        function LoginScreen({ onLogin, darkMode, setDarkMode }) {
+            const [role, setRole] = useState("student");
+            const [mode, setMode] = useState("login");
+            const [name, setName] = useState("");
+            const [email, setEmail] = useState("");
+            const [password, setPassword] = useState("");
+
+            function handleSubmit() {
+                onLogin({ name: name || (role === "teacher" ? "Ms. Carter" : "Jordan"), role });
+            }
+
+            function handleKeyDown(e) {
+                if (e.key === "Enter") handleSubmit();
+            }
+
+            return (
+                <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-slate-50 dark:bg-slate-950 transition-colors">
+                    <button onClick={() => setDarkMode(!darkMode)} className="absolute top-4 right-4 p-2 rounded-full text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors" aria-label="Toggle dark mode">
+                        {darkMode ? '☀️' : '🌙'}
+                    </button>
+
+                    <div className="flex items-center gap-2 mb-8">
+                        <div className="bg-blue-600 text-white rounded-xl p-2.5">📚</div>
+                        <span className="text-xl font-semibold text-slate-800 dark:text-slate-100">LectureShare</span>
+                    </div>
+
+                    <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-6">
+                        <div className="grid grid-cols-2 gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 mb-6">
+                            <button onClick={() => setRole("teacher")} className={`flex items-center justify-center gap-1.5 py-2 rounded-md text-sm font-medium transition-colors ${role === "teacher" ? "bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 shadow-sm" : "text-slate-500 dark:text-slate-400"}`}>
+                                👨‍🏫 Teacher
+                            </button>
+                            <button onClick={() => setRole("student")} className={`flex items-center justify-center gap-1.5 py-2 rounded-md text-sm font-medium transition-colors ${role === "student" ? "bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 shadow-sm" : "text-slate-500 dark:text-slate-400"}`}>
+                                🎓 Student
+                            </button>
+                        </div>
+
+                        <h1 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-1">
+                            {mode === "login" ? "Welcome back" : "Create your account"}
+                        </h1>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">
+                            {role === "teacher" ? "Upload and manage your lesson slides." : "Catch up on missed lectures and preview what's next."}
+                        </p>
+
+                        <div className="flex flex-col gap-3">
+                            {mode === "register" && (
+                                <input type="text" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={handleKeyDown} className="border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                            )}
+                            <input type="text" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={handleKeyDown} className="border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                            <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={handleKeyDown} className="border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                            {mode === "login" && (
+                                <button type="button" className="text-xs text-blue-600 dark:text-blue-400 text-left hover:underline">
+                                    Forgot password?
+                                </button>
+                            )}
+                            <button type="button" onClick={handleSubmit} className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2.5 text-sm font-semibold mt-1 transition-colors">
+                                {mode === "login" ? "Log In" : "Create Account"}
+                            </button>
+                        </div>
+
+                        <p className="text-xs text-center text-slate-500 dark:text-slate-400 mt-4">
+                            {mode === "login" ? "New here?" : "Already have an account?"}{" "}
+                            <button onClick={() => setMode(mode === "login" ? "register" : "login")} className="text-blue-600 dark:text-blue-400 font-medium hover:underline">
+                                {mode === "login" ? "Create an account" : "Log in"}
+                            </button>
+                        </p>
+                    </div>
+
+                    <button onClick={handleSubmit} className="mt-5 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400">
+                        ✨ Skip the form — continue as demo {role}
+                    </button>
+
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-8 max-w-xs text-center leading-relaxed">
+                        Prototype preview — uploads, accounts, and files are simulated for demonstration.
+                    </p>
+                </div>
+            );
+        }
+
+        /* ===================== Empty State ===================== */
+        function EmptyState({ icon, title, message }) {
+            return (
+                <div className="flex flex-col items-center justify-center text-center py-16 px-4">
+                    <div className="bg-slate-100 dark:bg-slate-800 rounded-full p-4 mb-4 text-3xl">{icon}</div>
+                    <p className="font-medium text-slate-700 dark:text-slate-200">{title}</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-xs">{message}</p>
+                </div>
+            );
+        }
+
+        /* ===================== Header ===================== */
+        function Header({ user, darkMode, setDarkMode, onLogout, notifications, onOpenNotifs, notifOpen, onMarkAllRead }) {
+            const unread = notifications.filter((n) => !n.read).length;
+            return (
+                <header className="flex items-center justify-between gap-3 px-4 md:px-6 h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30">
+                    <div className="flex items-center gap-2">
+                        <div className="bg-blue-600 text-white rounded-lg p-1.5">📚</div>
+                        <span className="font-semibold text-slate-800 dark:text-slate-100 hidden sm:inline">LectureShare</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        {user.role === "student" && (
+                            <div className="relative">
+                                <button onClick={onOpenNotifs} className="relative p-2 rounded-full text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Notifications">
+                                    🔔
+                                    {unread > 0 && (
+                                        <span className="absolute top-1 right-1 bg-rose-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">{unread}</span>
+                                    )}
+                                </button>
+                                {notifOpen && (
+                                    <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden">
+                                        <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 dark:border-slate-700">
+                                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Notifications</span>
+                                            <button onClick={onMarkAllRead} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">Mark all read</button>
+                                        </div>
+                                        <div className="max-h-64 overflow-y-auto">
+                                            {notifications.length === 0 ? (
+                                                <p className="text-sm text-slate-400 px-4 py-6 text-center">You're all caught up.</p>
+                                            ) : (
+                                                notifications.map((n) => (
+                                                    <div key={n.id} className={`px-4 py-2.5 text-sm border-b border-slate-50 dark:border-slate-700/50 ${n.read ? "text-slate-500 dark:text-slate-400" : "text-slate-800 dark:text-slate-100 font-medium"}`}>
+                                                        {n.message}
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        <button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-full text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Toggle dark mode">
+                            {darkMode ? '☀️' : '🌙'}
+                        </button>
+
+                        <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-700">
+                            <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex items-center justify-center text-xs font-semibold">
+                                {user.name.split(" ").map((p) => p[0]).slice(0, 2).join("")}
+                            </div>
+                            <div className="hidden sm:block leading-tight">
+                                <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{user.name}</p>
+                                <p className="text-xs text-slate-400 dark:text-slate-500 capitalize">{user.role}</p>
+                            </div>
+                            <button onClick={onLogout} className="p-2 rounded-full text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20" aria-label="Switch role / log out">
+                                🚪
+                            </button>
+                        </div>
+                    </div>
+                </header>
+            );
+        }
+
+        /* ===================== Student Dashboard (Simplified) ===================== */
+        function StudentDashboard({ decks, bookmarks, onToggleBookmark, onOpen, onDownload }) {
+            const [tab, setTab] = useState("all");
+            const [query, setQuery] = useState("");
+
+            let filtered = decks.filter((d) => {
+                const q = query.trim().toLowerCase();
+                const matchesQuery = !q || d.topic.toLowerCase().includes(q) || d.course.toLowerCase().includes(q);
+                return matchesQuery;
+            });
+
+            if (tab === "missed") filtered = filtered.filter((d) => d.label === "past_lesson");
+            if (tab === "preview") filtered = filtered.filter((d) => d.label === "upcoming_preview");
+            if (tab === "bookmarks") filtered = filtered.filter((d) => bookmarks.includes(d.id));
+
+            filtered = [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            return (
+                <main className="flex-1 overflow-y-auto p-4 md:p-6">
+                    <div className="flex gap-2 mb-4">
+                        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by topic or course…" className="flex-1 border border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                    </div>
+
+                    <div className="flex gap-1 mb-5 overflow-x-auto border-b border-slate-200 dark:border-slate-800">
+                        {["all", "missed", "preview", "bookmarks"].map((t) => (
+                            <button key={t} onClick={() => setTab(t)} className={`px-3.5 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${tab === t ? "border-blue-600 text-blue-700 dark:text-blue-400" : "border-transparent text-slate-500 dark:text-slate-400"}`}>
+                                {t === "all" ? "All Slides" : t === "missed" ? "Missed" : t === "preview" ? "Preview" : "Bookmarks"}
+                            </button>
+                        ))}
+                    </div>
+
+                    {filtered.length === 0 ? (
+                        <EmptyState icon="📚" title="No slides found" message="Try a different search or check back later" />
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {filtered.map((d) => (
+                                <div key={d.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden flex flex-col">
+                                    <button onClick={() => onOpen(d)} className={`h-28 w-full bg-gradient-to-br ${d.color} flex items-center justify-center relative`}>
+                                        📄
+                                        <span className="absolute top-2 left-2"><LabelBadge label={d.label} /></span>
+                                    </button>
+                                    <div className="p-3.5 flex-1 flex flex-col">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <p className="font-medium text-sm text-slate-800 dark:text-slate-100">{d.topic}</p>
+                                            <button onClick={() => onToggleBookmark(d.id)} className="flex-shrink-0 text-lg">
+                                                {bookmarks.includes(d.id) ? "⭐" : "☆"}
+                                            </button>
+                                        </div>
+                                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{d.course}</p>
+                                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">📅 {formatDate(d.date)}</p>
+                                        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                                            <button onClick={() => onOpen(d)} className="flex-1 text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg py-1.5">
+                                                View
+                                            </button>
+                                            <button onClick={() => onDownload(d)} className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
+                                                ⬇️
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </main>
+            );
+        }
+
+        /* ===================== Slide Viewer Modal ===================== */
+        function SlideViewerModal({ deck, onClose, onDownload, bookmarked, onToggleBookmark }) {
+            const [page, setPage] = useState(1);
+            const [zoom, setZoom] = useState(1);
+            const total = deck.pages.length;
+
+            useEffect(() => {
+                function handleKey(e) {
+                    if (e.key === "ArrowRight") setPage((p) => Math.min(total, p + 1));
+                    if (e.key === "ArrowLeft") setPage((p) => Math.max(1, p - 1));
+                    if (e.key === "+" || e.key === "=") setZoom((z) => Math.min(2, z + 0.25));
+                    if (e.key === "-") setZoom((z) => Math.max(0.5, z - 0.25));
+                    if (e.key === "Escape") onClose();
+                }
+                window.addEventListener("keydown", handleKey);
+                return () => window.removeEventListener("keydown", handleKey);
+            }, [total, onClose]);
+
+            const slide = deck.pages[page - 1];
+
+            return (
+                <div className="fixed z-[60] bg-black/70 inset-0 flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-slate-900 w-full h-full md:h-auto md:rounded-2xl overflow-hidden max-w-5xl flex flex-col">
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex-shrink-0">
+                            <div className="min-w-0">
+                                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{deck.topic}</p>
+                                <p className="text-xs text-slate-400 dark:text-slate-500">{deck.course}</p>
+                            </div>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                                <button onClick={() => onToggleBookmark(deck.id)} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
+                                    {bookmarked ? "⭐" : "☆"}
+                                </button>
+                                <button onClick={() => onDownload(deck)} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
+                                    ⬇️
+                                </button>
+                                <button onClick={onClose} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
+                                    ✕
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="flex-1 overflow-auto flex items-center justify-center bg-slate-100 dark:bg-slate-950 p-6">
+                            <div style={{ transform: `scale(${zoom})`, transition: "transform 0.15s ease-out" }} className="bg-white rounded-lg shadow-xl w-[640px] h-[360px] flex-shrink-0 flex flex-col items-center justify-center px-10 text-center">
+                                {slide.kind === "title" ? (
+                                    <>
+                                        <p className="text-2xl font-bold text-slate-800">{slide.title}</p>
+                                        <p className="text-sm text-slate-500 mt-2">{slide.subtitle}</p>
+                                    </>
+                                ) : (
+                                    <div className="w-full text-left">
+                                        <p className="text-lg font-semibold text-slate-800 mb-4">{slide.title}</p>
+                                        <ul className="space-y-2">
+                                            {slide.bullets.map((b, i) => (
+                                                <li key={i} className="text-sm text-slate-600 flex items-start gap-2">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" /> {b}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-center gap-4 px-4 py-3 border-t border-slate-200 dark:border-slate-800 flex-shrink-0">
+                            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="p-2 rounded-lg disabled:opacity-30 hover:bg-slate-100 dark:hover:bg-slate-800">
+                                ◀
+                            </button>
+                            <span className="text-sm text-slate-500 dark:text-slate-400 w-20 text-center">Page {page} of {total}</span>
+                            <button onClick={() => setPage((p) => Math.min(total, p + 1))} disabled={page >= total} className="p-2 rounded-lg disabled:opacity-30 hover:bg-slate-100 dark:hover:bg-slate-800">
+                                ▶
+                            </button>
+                            <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-1" />
+                            <button onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
+                                −
+                            </button>
+                            <span className="text-sm text-slate-500 dark:text-slate-400 w-12 text-center">{Math.round(zoom * 100)}%</span>
+                            <button onClick={() => setZoom((z) => Math.min(2, z + 0.25))} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
+                                +
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        /* ===================== App ===================== */
+        function App() {
+            const [darkMode, setDarkMode] = useState(false);
+            const [user, setUser] = useState(null);
+            const [decks, setDecks] = useState(initialDecks);
+            const [bookmarks, setBookmarks] = useState([]);
+            const [notifications, setNotifications] = useState([]);
+            const [notifOpen, setNotifOpen] = useState(false);
+            const [viewerDeckId, setViewerDeckId] = useState(null);
+            const [toasts, setToasts] = useState([]);
+
+            const viewerDeck = decks.find((d) => d.id === viewerDeckId);
+
+            function showToast(message) {
+                const id = nextId();
+                setToasts((t) => [...t, { id, message }]);
+                setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2800);
+            }
+
+            function addNotification(deck) {
+                const msg = `New ${deck.label === "past_lesson" ? "past lesson" : "upcoming preview"}: "${deck.topic}"`;
+                setNotifications((n) => [{ id: nextId(), message: msg, read: false, deckId: deck.id }, ...n]);
+            }
+
+            function toggleBookmark(id) {
+                setBookmarks((b) => b.includes(id) ? b.filter((x) => x !== id) : [...b, id]);
+            }
+
+            function openViewer(deck) {
+                setDecks((ds) => ds.map((d) => d.id === deck.id ? { ...d, views: d.views + 1 } : d));
+                setViewerDeckId(deck.id);
+            }
+
+            function handleDownload(deck) {
+                setDecks((ds) => ds.map((d) => d.id === deck.id ? { ...d, downloads: d.downloads + 1 } : d));
+                showToast(`Downloading "${deck.topic}" (demo)`);
+            }
+
+            if (!user) {
+                return (
+                    <div className={darkMode ? "dark" : ""}>
+                        <LoginScreen onLogin={setUser} darkMode={darkMode} setDarkMode={setDarkMode} />
+                    </div>
+                );
+            }
+
+            return (
+                <div className={darkMode ? "dark" : ""}>
+                    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 transition-colors">
+                        <Header
+                            user={user} darkMode={darkMode} setDarkMode={setDarkMode}
+                            onLogout={() => setUser(null)}
+                            notifications={notifications}
+                            notifOpen={notifOpen}
+                            onOpenNotifs={() => setNotifOpen(!notifOpen)}
+                            onMarkAllRead={() => setNotifications((n) => n.map((x) => ({ ...x, read: true }}))}
+                        />
+
+                        <StudentDashboard
+                            decks={decks.filter((d) => d.status === "ready")}
+                            bookmarks={bookmarks}
+                            onToggleBookmark={toggleBookmark}
+                            onOpen={openViewer}
+                            onDownload={handleDownload}
+                        />
+
+                        {viewerDeck && (
+                            <SlideViewerModal
+                                deck={viewerDeck}
+                                onClose={() => setViewerDeckId(null)}
+                                onDownload={handleDownload}
+                                bookmarked={bookmarks.includes(viewerDeck.id)}
+                                onToggleBookmark={toggleBookmark}
+                            />
+                        )}
+
+                        <ToastStack toasts={toasts} />
+                    </div>
+                </div>
+            );
+        }
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
